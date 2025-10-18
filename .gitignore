@@ -1,0 +1,26 @@
+# Ignore generated folders
+__pycache__/
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Ignore PDF Files
+*.pdf
+
+# Ignore license files
+App/client_secrets.json
+App/drive_config.json
+*.json
+*.license
+*.key
+# Ignore executable files
+*.exe
+# Ignore system files
+.DS_Store
+Thumbs.db
+# Ignore environment files
+.env
+.venv/
+env/
+venv/
