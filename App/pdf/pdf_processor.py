@@ -1,7 +1,6 @@
 """
 Módulo de procesamiento de PDFs (vinculación, QR, etc.)
 Versión mejorada con búsqueda directa de patrones desde carpeta
-✅ OPTIMIZADO: Logs únicos sin repeticiones
 """
 
 import os
@@ -114,9 +113,8 @@ class PDFProcessor:
                 nombre_normalizado = nombre_sin_extension.replace(" ", "").replace("-", "").replace("_", "").upper()
                 patrones[nombre_normalizado] = file_id
             
-            # 🎯 SOLO mostrar log si app está disponible (no en modo silencioso)
-            # if app:
-            #     app._insertar_log(f"   📁 {len(archivos_drive)} patrones encontrados en Drive\n", "info")
+            if app:
+                app._insertar_log(f"   📁 {len(archivos_drive)} patrones encontrados en Drive\n", "info")
             
             return patrones
             
@@ -196,18 +194,18 @@ class PDFProcessor:
     
     def procesar_vinculacion_pdf_sincrono(self, archivo, app):
         """
-        🔥 VERSIÓN OPTIMIZADA: Busca nombres de patrones de la carpeta en la segunda página del PDF
-        ✅ Solo muestra patrones únicos en el log (sin repeticiones)
+        🔥 NUEVA VERSIÓN: Busca nombres de patrones de la carpeta en la segunda página del PDF
         """
         temp_path = None
         try:
             nombre = os.path.basename(archivo)
+            app._insertar_log(f"   🔗 Procesando vinculación: {nombre}\n", "info")
             
-            # 1. Obtener nombres de patrones desde la carpeta (SILENCIOSO)
-            patrones_disponibles = self._obtener_nombres_patrones_desde_carpeta(app=None)
+            # 1. Obtener nombres de patrones desde la carpeta
+            patrones_disponibles = self._obtener_nombres_patrones_desde_carpeta(app)
             
             if not patrones_disponibles:
-                app._insertar_log(f"   ⚠️ No se encontraron patrones\n", "warning")
+                app._insertar_log(f"   ⚠️ No se encontraron patrones en la carpeta '{self.carpeta_patrones}'\n", "warning")
                 return {'ruta_pdf_vinculado': archivo, 'vinculos': 0}
             
             # 2. Abrir el PDF a procesar
@@ -216,26 +214,30 @@ class PDFProcessor:
             doc = fitz.open(temp_path)
             
             vinculos_creados = 0
-            vinculos_unicos = set()  # 🎯 Set para patrones únicos
+            vinculos_unicos = set()
             
             # 3. Procesar la SEGUNDA página (índice 1) que es donde están los patrones
             if len(doc) < 2:
-                app._insertar_log(f"   ⚠️ El PDF solo tiene {len(doc)} página(s)\n", "warning")
+                app._insertar_log(f"   ⚠️ El PDF solo tiene {len(doc)} página(s). Se necesitan al menos 2.\n", "warning")
                 doc.close()
                 return {'ruta_pdf_vinculado': archivo, 'vinculos': 0}
             
             page = doc[1]  # Segunda página (índice 1)
+            app._insertar_log(f"   📄 Analizando página 2 (patrones)...\n", "info")
             
-            # 4. Extraer todo el texto de la página (SILENCIOSO)
+            # 4. Extraer todo el texto de la página
             texto_completo = page.get_text()
             
-            # Si no hay texto, usar OCR (SILENCIOSO)
+            # Si no hay texto, usar OCR
             if not texto_completo.strip():
+                app._insertar_log(f"   ⚠️ No se detectó texto embebido. Ejecutando OCR...\n", "info")
                 palabras_ocr = self._extraer_texto_con_ocr(page)
                 texto_completo = ' '.join([p[4] for p in palabras_ocr])
             
-            # 5. Buscar qué patrones aparecen en el texto (SILENCIOSO)
+            # 5. Buscar qué patrones aparecen en el texto
             patrones_encontrados = self._buscar_patron_en_texto(texto_completo, patrones_disponibles)
+            
+            app._insertar_log(f"   🎯 {len(patrones_encontrados)} patrones detectados en el PDF\n", "info")
             
             # 6. Para cada patrón encontrado, buscar sus coordenadas y crear el vínculo
             for nombre_patron in patrones_encontrados:
@@ -252,7 +254,7 @@ class PDFProcessor:
                 # Generar enlace directo de Drive
                 enlace = f"https://drive.google.com/file/d/{file_id_patron}/view"
                 
-                # 🎯 OPTIMIZACIÓN: Insertar vínculos SIN mostrar log repetitivo
+                # Insertar vínculo en cada área encontrada
                 for area in areas:
                     try:
                         rect_expandido = fitz.Rect(
@@ -265,8 +267,8 @@ class PDFProcessor:
                             "uri": enlace
                         })
                         vinculos_creados += 1
-                        vinculos_unicos.add(nombre_patron)  # Solo agregamos al set
-                        # ❌ NO imprimimos aquí para evitar repeticiones
+                        vinculos_unicos.add(nombre_patron)
+                        app._insertar_log(f"   ✅ Vinculado: {nombre_patron}\n", "success")
                     except Exception as e:
                         app._insertar_log(f"   ❌ Error vinculando '{nombre_patron}': {str(e)}\n", "error")
             
@@ -274,14 +276,11 @@ class PDFProcessor:
             doc.save(archivo, garbage=4, deflate=True)
             doc.close()
             
-            # 8. 🎯 MOSTRAR SOLO RESUMEN COMPACTO
+            # 8. Mostrar resultados
             if vinculos_creados > 0:
-                patrones_texto = ", ".join(sorted(vinculos_unicos))
-                app._insertar_log(f"   ✅ {vinculos_creados} vínculos creados: {patrones_texto}\n", "success")
-                
+                app._insertar_log(f"   ✅ Vinculación completada: {vinculos_creados} vínculos\n", "success")
                 if hasattr(app, 'mostrar_vinculos_unicos'):
                     app.mostrar_vinculos_unicos([(p, "PATRÓN") for p in vinculos_unicos])
-                
                 return {'ruta_pdf_vinculado': archivo, 'vinculos': vinculos_creados}
             else:
                 app._insertar_log(f"   ⚠️ No se crearon vínculos\n", "info")
@@ -305,7 +304,7 @@ class PDFProcessor:
         try:
             nombre = os.path.basename(archivo)
             
-            # Analizar firma (SILENCIOSO)
+            # Analizar firma
             estado_firma, subfilter, firmante, fecha_firma = self.signature_analyzer.analizar_pdf_firma(archivo)
             esta_firmado = "✅ Firmado" in estado_firma
 
@@ -318,21 +317,28 @@ class PDFProcessor:
             magnitud_actual = self.magnitude_manager.magnitud_seleccionada or "otros"
             
             if esta_firmado:
-                # 🔥 Intentar reemplazar PDF firmado (SILENCIOSO)
+                app._insertar_log(f"   📄 PDF FIRMADO - Procesando reemplazo\n", "info")
+                
+                # 🔥 NUEVA FUNCIONALIDAD: Intentar reemplazar PDF firmado
                 resultado_reemplazo = self.magnitude_manager.reemplazar_pdf_por_certificado(archivo, app)
                 
                 if resultado_reemplazo:
+                    # Se reemplazó exitosamente
                     return True
                 else:
                     # No se encontró coincidencia, subir como nuevo
+                    app._insertar_log(f"   ⚠️ No se encontró archivo existente para reemplazar\n", "warning")
+                    app._insertar_log(f"   📤 Subiendo como archivo nuevo\n", "info")
                     file_id, enlace, modo, magnitud = self.magnitude_manager.subir_pdf(archivo, magnitud_actual)
-                    app._insertar_log(f"   ✅ PDF firmado subido\n", "success")
+                    app._insertar_log(f"   ✅ PDF firmado subido a Drive\n", "success")
                     return True
             else:
-                # Subir PDF primero (SILENCIOSO)
+                app._insertar_log(f"   📱 PDF NO FIRMADO - Procesando QR\n", "info")
+                
+                # Subir PDF primero
                 file_id, enlace, modo, magnitud = self.magnitude_manager.subir_pdf(archivo, magnitud_actual)
                 
-                # Generar e insertar QR (SILENCIOSO)
+                # Generar e insertar QR
                 ruta_qr = self.generar_qr(enlace)
                 ruta_con_qr, sobrescrito = self.insertar_qr_en_pdf(archivo, ruta_qr)
                 
@@ -341,22 +347,19 @@ class PDFProcessor:
                 file.SetContentFile(ruta_con_qr)
                 file.Upload()
 
-                app._insertar_log(f"   ✅ QR insertado\n", "success")
+                app._insertar_log(f"   ✅ QR insertado y subido\n", "success")
                 return True
 
         except Exception as e:
-            app._insertar_log(f"   ❌ Error: {str(e)}\n", "error")
+            app._insertar_log(f"   ❌ Error procesando QR: {str(e)}\n", "error")
             return False
         finally:
             # Limpiar temporales
             self.limpiar_temporales_individual()
 
-    # MÉTODOS ORIGINALES OPTIMIZADOS
+    # MÉTODOS ORIGINALES (se mantienen igual)
     def procesar_vinculacion_pdf(self, ruta_pdf: str, log_widget, root, callback, progress, lbl_estado_global):
-        """
-        🔥 VERSIÓN OPTIMIZADA: Procesa vinculación para tablas complejas con múltiples filas
-        ✅ Solo muestra patrones únicos en el log (sin repeticiones)
-        """
+        """Procesa vinculación para tablas complejas con múltiples filas"""
         def _run():
             nombre = os.path.basename(ruta_pdf)
             magnitud_actual = self.magnitude_manager.magnitud_seleccionada or "otros"
@@ -366,11 +369,11 @@ class PDFProcessor:
             try:
                 log_widget.insert('end', f"\n📋 PROCESANDO PATRONES: {nombre}\n", "proceso")
                 
-                # Obtener nombres de patrones desde la carpeta (SILENCIOSO)
+                # Obtener nombres de patrones desde la carpeta
                 patrones_disponibles = self._obtener_nombres_patrones_desde_carpeta()
                 
                 if not patrones_disponibles:
-                    root.after(0, lambda: log_widget.insert('end', f"   ⚠️ No se encontraron patrones\n", "warning"))
+                    log_widget.insert('end', f"   ⚠️ No se encontraron patrones en la carpeta '{self.carpeta_patrones}'\n", "warning")
                     return
                 
                 temp_path = os.path.join(os.path.dirname(ruta_pdf), self.temp_pdf)
@@ -378,26 +381,29 @@ class PDFProcessor:
                 doc = fitz.open(temp_path)
                 
                 vinculos_creados = 0
-                vinculos_unicos = set()  # 🎯 Set para patrones únicos
+                vinculos_unicos = set()
                 
                 # Procesar la segunda página
                 if len(doc) < 2:
-                    root.after(0, lambda: log_widget.insert('end', f"   ⚠️ El PDF solo tiene {len(doc)} página(s)\n", "warning"))
+                    log_widget.insert('end', f"   ⚠️ El PDF solo tiene {len(doc)} página(s)\n", "warning")
                     doc.close()
                     return
                 
                 page = doc[1]  # Segunda página
+                log_widget.insert('end', f"   📄 Analizando página 2 (patrones)...\n", "info")
                 
-                # Extraer texto (SILENCIOSO)
+                # Extraer texto
                 texto_completo = page.get_text()
                 if not texto_completo.strip():
+                    log_widget.insert('end', f"   ⚠️ Ejecutando OCR...\n", "info")
                     palabras_ocr = self._extraer_texto_con_ocr(page)
                     texto_completo = ' '.join([p[4] for p in palabras_ocr])
                 
-                # Buscar patrones (SILENCIOSO)
+                # Buscar patrones
                 patrones_encontrados = self._buscar_patron_en_texto(texto_completo, patrones_disponibles)
+                log_widget.insert('end', f"   🎯 {len(patrones_encontrados)} patrones detectados\n", "info")
                 
-                # 🎯 OPTIMIZACIÓN: Vincular sin logs repetitivos
+                # Vincular cada patrón
                 for nombre_patron in patrones_encontrados:
                     areas = self._buscar_coordenadas_patron_en_pagina(page, nombre_patron)
                     
@@ -422,8 +428,10 @@ class PDFProcessor:
                                 "uri": enlace
                             })
                             vinculos_creados += 1
-                            vinculos_unicos.add(nombre_patron)  # Solo agregamos al set
-                            # ❌ NO imprimimos aquí para evitar repeticiones
+                            vinculos_unicos.add(nombre_patron)
+                            
+                            root.after(0, lambda p=nombre_patron: 
+                                log_widget.insert('end', f"   ✅ {p}\n", "success"))
                         except Exception as e:
                             pass
 
@@ -438,12 +446,12 @@ class PDFProcessor:
                 # Registrar en log JSON
                 self._registrar_vinculacion(nombre, vinculos_creados, magnitud_actual)
                 
-                # 🎯 MOSTRAR SOLO RESUMEN COMPACTO
-                patrones_texto = ", ".join(sorted(vinculos_unicos))
-                root.after(0, lambda txt=patrones_texto, n=vinculos_creados: 
-                    log_widget.insert('end', f"   ✅ {n} vínculos: {txt}\n", "success"))
+                # Mostrar resumen
+                root.after(0, lambda: log_widget.insert('end', f"\n📊 RESUMEN:\n", "proceso"))
+                root.after(0, lambda: log_widget.insert('end', f"   Total vínculos: {vinculos_creados}\n", "info"))
+                root.after(0, lambda: log_widget.insert('end', f"   Patrones únicos: {len(vinculos_unicos)}\n", "info"))
                 
-                root.after(0, lambda: log_widget.insert('end', f"\n✅ COMPLETADO: {nombre}\n", "success"))
+                root.after(0, lambda: log_widget.insert('end', f"\n✅ VINCULACIÓN COMPLETADA: {nombre}\n", "success"))
                 lbl_estado_global.config(text=f"Vinculación completada: {vinculos_creados} vínculos", fg="#27ae60")
                 
             except Exception as e:
@@ -504,18 +512,22 @@ class PDFProcessor:
                 nombre_magnitud = self.magnitude_manager.MAGNITUDES[magnitud_actual]
                 
                 if esta_firmado:
-                    # 🔥 Intentar reemplazar PDF firmado (SILENCIOSO)
+                    log_widget.insert('end', f"\n📄 PDF FIRMADO: {nombre}\n", "proceso")
+                    
+                    # 🔥 NUEVA FUNCIONALIDAD: Intentar reemplazar PDF firmado
                     resultado_reemplazo = self.magnitude_manager.reemplazar_pdf_por_certificado_thread(
                         ruta_pdf, log_widget, root
                     )
                     
                     if not resultado_reemplazo:
                         # No se encontró coincidencia, subir como nuevo
+                        log_widget.insert('end', f"   ⚠️ No se encontró archivo existente\n", "warning")
+                        log_widget.insert('end', f"   📤 Subiendo como archivo nuevo\n", "info")
                         file_id, enlace, modo, magnitud = self.magnitude_manager.subir_pdf(ruta_pdf, magnitud_actual)
-                        log_widget.insert('end', f"   ✅ PDF firmado subido\n", "success")
+                        log_widget.insert('end', f"   ✅ PDF firmado subido a Drive\n", "success")
                     
                 else:
-                    # Subir PDF y generar QR (SILENCIOSO)
+                    log_widget.insert('end', f"\n📱 PDF NO FIRMADO: {nombre}\n", "proceso")
                     file_id, enlace, modo, magnitud = self.magnitude_manager.subir_pdf(ruta_pdf, magnitud_actual)
                     ruta_qr = self.generar_qr(enlace)
                     ruta_con_qr, sobrescrito = self.insertar_qr_en_pdf(ruta_pdf, ruta_qr)
@@ -527,7 +539,7 @@ class PDFProcessor:
                     file.SetContentFile(ruta_con_qr)
                     file.Upload()
 
-                    log_widget.insert('end', f"   ✅ QR insertado\n", "success")
+                    log_widget.insert('end', f"   ✅ QR INSERTADO: {nombre}\n", "success")
 
             except Exception as e:
                 error_msg = str(e)
@@ -540,7 +552,7 @@ class PDFProcessor:
                 if progress:
                     progress.step()
                 root.after(100, callback)
-                lbl_estado_global.config(text=f"Completado: {nombre}", fg="#1a5276")
+                lbl_estado_global.config(text=f"Proceso completado: {nombre}", fg="#1a5276")
 
         threading.Thread(target=_run).start()
 

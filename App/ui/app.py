@@ -124,11 +124,6 @@ class CertificadosApp:
         notebook.add(tab_firmas, text="📋 Información de Firmas")
         self.setup_tab_firmas(tab_firmas)
         
-        # PESTAÑA 4: Análisis Estadístico (NUEVA)
-        tab_analisis = tk.Frame(notebook, bg="#e9eef7")
-        notebook.add(tab_analisis, text="📊 Análisis Estadístico")
-        self.setup_tab_analisis_estadistico(tab_analisis)
-        
         self.actualizar_display_magnitud()
     
     def setup_tab_procesamiento(self, parent):
@@ -176,676 +171,660 @@ class CertificadosApp:
         self.lbl_estado_global.pack(pady=(0, 8))
         
         # Log frame
-        log_frame = tk.LabelFrame(main_frame, text="📋 Registro de actividades", 
+        log_frame = tk.LabelFrame(main_frame, text="📝 Log de Procesamiento", 
                                  bg="#e9eef7", fg="#1f618d", font=("Segoe UI", 10, "bold"))
         log_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
         
-        self.log_widget = scrolledtext.ScrolledText(log_frame, height=8, 
-                                                    font=("Consolas", 8), wrap=tk.WORD, state=tk.DISABLED)
+        self.log_widget = scrolledtext.ScrolledText(log_frame, height=6, font=("Consolas", 8))
         self.log_widget.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
-        self.log_widget.tag_config("info", foreground="#1f618d")
-        self.log_widget.tag_config("success", foreground="#27ae60")
-        self.log_widget.tag_config("error", foreground="#e74c3c")
         
-        # Buttons frame
-        buttons_frame = tk.Frame(main_frame, bg="#e9eef7")
-        buttons_frame.pack(fill=tk.X, pady=(0, 8))
+        # Configurar tags para el log
+        for tag, color in [("proceso", "#1f618d"), ("success", "#27ae60"), 
+                          ("error", "#e74c3c"), ("info", "#f39c12"), 
+                          ("enlace", "#3498db"), ("magnitud", "#9b59b6")]:
+            self.log_widget.tag_config(tag, foreground=color, font=("Consolas", 8, "bold"))
         
-        self.btn_procesar = tk.Button(buttons_frame, text="▶️ PROCESAR ARCHIVOS", 
-                                       command=self.iniciar_procesamiento_simple,
-                                       bg="#27ae60", fg="white", font=("Segoe UI", 11, "bold"),
-                                       relief=tk.FLAT, padx=20, pady=10, state=tk.DISABLED)
-        self.btn_procesar.pack(side=tk.LEFT, padx=8, expand=True, fill=tk.X)
+        # Action frame
+        action_frame = tk.Frame(main_frame, bg="#e9eef7")
+        action_frame.pack(fill=tk.X, pady=8)
         
-        tk.Button(buttons_frame, text="⚙️ CONFIGURACIÓN", command=self.mostrar_configuracion,
-                 bg="#9b59b6", fg="white", font=("Segoe UI", 11, "bold"),
-                 relief=tk.FLAT, padx=20, pady=10).pack(side=tk.LEFT, padx=8)
+        center_frame = tk.Frame(action_frame, bg="#e9eef7")
+        center_frame.pack(expand=True)
+        
+        self.btn_procesar = tk.Button(center_frame, text="🚀 INICIAR PROCESAMIENTO", 
+                                    command=self.iniciar_procesamiento,
+                                    bg="#27ae60", fg="white", font=("Segoe UI", 10, "bold"),
+                                    relief=tk.FLAT, padx=15, pady=8)
+        self.btn_procesar.pack(side=tk.LEFT, padx=4)
+        
+        tk.Button(center_frame, text="⚙️ Configuración", command=self.mostrar_configuracion,
+                 bg="#95a5a6", fg="white", font=("Segoe UI", 9, "bold"),
+                 relief=tk.FLAT, padx=12, pady=6).pack(side=tk.LEFT, padx=4)
+        
+        if DND_ACTIVO:
+            self.lista_archivos.drop_target_register(DND_FILES)
+            self.lista_archivos.dnd_bind('<<Drop>>', self.archivos_arrastrados)
     
     def setup_tab_carga_patrones(self, parent):
-        """Tab de Carga de Patrones"""
+        """NUEVA PESTAÑA: Carga de patrones a Drive"""
         main_frame = tk.Frame(parent, bg="#e9eef7")
         main_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=5)
         
-        # Header explicativo
-        info_frame = tk.Frame(main_frame, bg="#d6eaf8", relief=tk.RIDGE, bd=2)
-        info_frame.pack(fill=tk.X, pady=(0, 12))
-        
-        tk.Label(info_frame, text="📦 CARGA DE PATRONES A GOOGLE DRIVE", 
-                bg="#d6eaf8", fg="#1f618d", font=("Segoe UI", 11, "bold")).pack(pady=8)
-        
-        tk.Label(info_frame, 
-                text="Selecciona archivos PDF escaneados de calibraciones/ensayos para subirlos como patrones.\n"
-                     "El sistema detectará automáticamente si ya existen en Drive y evitará duplicados.",
-                bg="#d6eaf8", fg="#2c3e50", font=("Segoe UI", 8), justify=tk.LEFT).pack(padx=12, pady=(0, 8))
-        
         # File frame
-        file_frame = tk.LabelFrame(main_frame, text="📄 Archivos PDF a cargar como patrones", 
-                                  bg="#e9eef7", fg="#1f618d", font=("Segoe UI", 10, "bold"))
+        file_frame = tk.LabelFrame(main_frame, text="📦 Patrones PDF a cargar en Drive", 
+                                  bg="#e9eef7", fg="#9b59b6", font=("Segoe UI", 10, "bold"))
         file_frame.pack(fill=tk.X, pady=(0, 8))
         
         btn_frame = tk.Frame(file_frame, bg="#e9eef7")
         btn_frame.pack(fill=tk.X, padx=8, pady=8)
         
-        tk.Button(btn_frame, text="📂 Seleccionar PDFs", command=self.seleccionar_patrones,
-                 bg="#3498db", fg="white", font=("Segoe UI", 9, "bold"),
+        tk.Button(btn_frame, text="📂 Seleccionar archivos PDF", command=self.seleccionar_patrones,
+                 bg="#9b59b6", fg="white", font=("Segoe UI", 9, "bold"),
                  relief=tk.FLAT, padx=12, pady=6).pack(side=tk.LEFT, padx=4)
         
-        tk.Button(btn_frame, text="🗑️ Limpiar Lista", command=self.limpiar_lista_patrones,
+        tk.Button(btn_frame, text="🗑️ Limpiar TODO", command=self.limpiar_todo_patrones,  # CORREGIDO
                  bg="#e74c3c", fg="white", font=("Segoe UI", 9, "bold"),
                  relief=tk.FLAT, padx=12, pady=6).pack(side=tk.LEFT, padx=4)
         
-        self.lista_patrones = tk.Listbox(file_frame, height=5, font=("Segoe UI", 8))
+        self.lista_patrones = tk.Listbox(file_frame, height=4, font=("Segoe UI", 8))
         self.lista_patrones.pack(fill=tk.X, padx=8, pady=(0, 8))
+        
+        # Información de destino
+        destino_info = tk.Frame(file_frame, bg="#e9eef7")
+        destino_info.pack(fill=tk.X, padx=8, pady=(0, 8))
+        
+        tk.Label(destino_info, 
+                text="📁 Carpeta destino: Patrones (Drive)",
+                bg="#e9eef7", fg="#9b59b6", font=("Segoe UI", 8, "bold")).pack(anchor="w")
+        
+        tk.Label(destino_info,
+                text="🔗 Permisos: Cualquiera con el enlace (Lector)",
+                bg="#e9eef7", fg="#e67e22", font=("Segoe UI", 7, "italic")).pack(anchor="w", pady=(2, 0))
         
         # Progress frame
         progress_frame = tk.LabelFrame(main_frame, text="📊 Progreso de Carga", 
-                                      bg="#e9eef7", fg="#1f618d", font=("Segoe UI", 10, "bold"))
+                                      bg="#e9eef7", fg="#9b59b6", font=("Segoe UI", 10, "bold"))
         progress_frame.pack(fill=tk.X, pady=(0, 8))
         
         self.progress_patrones = ttk.Progressbar(progress_frame, mode='determinate')
         self.progress_patrones.pack(fill=tk.X, padx=8, pady=8)
         
         self.lbl_estado_patrones = tk.Label(progress_frame, text="Esperando archivos...", 
-                                           bg="#e9eef7", fg="#1f618d", font=("Segoe UI", 9, "bold"))
+                                           bg="#e9eef7", fg="#9b59b6", font=("Segoe UI", 9, "bold"))
         self.lbl_estado_patrones.pack(pady=(0, 8))
         
         # Log frame
-        log_frame = tk.LabelFrame(main_frame, text="📋 Registro de carga", 
-                                 bg="#e9eef7", fg="#1f618d", font=("Segoe UI", 10, "bold"))
+        log_frame = tk.LabelFrame(main_frame, text="📝 Log de Carga de Patrones", 
+                                 bg="#e9eef7", fg="#9b59b6", font=("Segoe UI", 10, "bold"))
         log_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
         
-        self.log_patrones = scrolledtext.ScrolledText(log_frame, height=6, 
-                                                     font=("Consolas", 8), wrap=tk.WORD, state=tk.DISABLED)
+        self.log_patrones = scrolledtext.ScrolledText(log_frame, height=6, font=("Consolas", 8))
         self.log_patrones.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
-        self.log_patrones.tag_config("info", foreground="#1f618d")
-        self.log_patrones.tag_config("success", foreground="#27ae60")
-        self.log_patrones.tag_config("error", foreground="#e74c3c")
-        self.log_patrones.tag_config("warning", foreground="#e67e22")
         
-        # Buttons frame
-        buttons_frame = tk.Frame(main_frame, bg="#e9eef7")
-        buttons_frame.pack(fill=tk.X, pady=(0, 8))
+        # Configurar tags
+        for tag, color in [("success", "#27ae60"), ("error", "#e74c3c"), 
+                          ("info", "#9b59b6"), ("enlace", "#3498db"), 
+                          ("warning", "#f39c12"), ("duplicado", "#e67e22")]:
+            self.log_patrones.tag_config(tag, foreground=color, font=("Consolas", 8, "bold"))
         
-        self.btn_cargar_patrones = tk.Button(buttons_frame, text="📤 CARGAR PATRONES A DRIVE", 
-                                             command=self.iniciar_carga_patrones,
-                                             bg="#f39c12", fg="white", font=("Segoe UI", 11, "bold"),
-                                             relief=tk.FLAT, padx=20, pady=10, state=tk.DISABLED)
-        self.btn_cargar_patrones.pack(expand=True, fill=tk.X, padx=8)
+        # Mensaje inicial
+        self._insertar_log_patrones("✨ Sistema de carga de patrones listo.\n", "info")
+        self._insertar_log_patrones("📦 Seleccione o arrastre archivos PDF de patrones.\n\n", "info")
+        
+        # Action frame
+        action_frame = tk.Frame(main_frame, bg="#e9eef7")
+        action_frame.pack(fill=tk.X, pady=8)
+        
+        center_frame = tk.Frame(action_frame, bg="#e9eef7")
+        center_frame.pack(expand=True)
+        
+        self.btn_cargar_patrones = tk.Button(center_frame, text="⬆️ SUBIR PATRONES A DRIVE", 
+                                            command=self.iniciar_carga_patrones,
+                                            bg="#9b59b6", fg="white", font=("Segoe UI", 10, "bold"),
+                                            relief=tk.FLAT, padx=15, pady=8)
+        self.btn_cargar_patrones.pack(side=tk.LEFT, padx=4)
+        
+        if DND_ACTIVO:
+            self.lista_patrones.drop_target_register(DND_FILES)
+            self.lista_patrones.dnd_bind('<<Drop>>', self.patrones_arrastrados)
     
     def setup_tab_firmas(self, parent):
-        """Tab de información de firmas"""
-        main_frame = tk.Frame(parent, bg="#e9eef7")
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=5)
+        info_frame = tk.LabelFrame(parent, text="ℹ️ Información", 
+                                  bg="#e9eef7", fg="#1f618d", font=("Segoe UI", 10, "bold"))
+        info_frame.pack(fill=tk.X, pady=(0, 8), padx=8)
         
-        # Header
-        header_frame = tk.Frame(main_frame, bg="#d6eaf8", relief=tk.RIDGE, bd=2)
-        header_frame.pack(fill=tk.X, pady=(0, 12))
+        info_text = tk.Label(info_frame, 
+                            text="La información de firmas se genera automáticamente durante el procesamiento.",
+                            bg="#e9eef7", fg="#7f8c8d", font=("Segoe UI", 8), justify=tk.LEFT)
+        info_text.pack(padx=8, pady=8)
         
-        tk.Label(header_frame, text="📋 INFORMACIÓN DE FIRMAS DIGITALES", 
-                bg="#d6eaf8", fg="#1f618d", font=("Segoe UI", 11, "bold")).pack(pady=8)
+        results_frame = tk.LabelFrame(parent, text="📊 Resultados de Firmas Digitales", 
+                                     bg="#e9eef7", fg="#1f618d", font=("Segoe UI", 10, "bold"))
+        results_frame.pack(fill=tk.BOTH, expand=True, pady=8, padx=8)
         
-        tk.Label(header_frame, 
-                text="Consulta información detallada de las firmas de los PDFs procesados",
-                bg="#d6eaf8", fg="#2c3e50", font=("Segoe UI", 8)).pack(pady=(0, 8))
+        columns = ("Archivo", "Estado", "Firmante", "Fecha", "Tipo", "Magnitud")
+        self.tree_firmas = ttk.Treeview(results_frame, columns=columns, show="headings", height=10)
         
-        # Frame de botones
-        btn_frame = tk.Frame(main_frame, bg="#e9eef7")
-        btn_frame.pack(fill=tk.X, pady=(0, 8))
+        for col in columns:
+            self.tree_firmas.heading(col, text=col)
         
-        tk.Button(btn_frame, text="🔄 Actualizar datos", 
-                 command=self.actualizar_tabla_firmas,
-                 bg="#3498db", fg="white", font=("Segoe UI", 9, "bold"),
-                 relief=tk.FLAT, padx=12, pady=6).pack(side=tk.LEFT, padx=4)
+        self.tree_firmas.column("Archivo", width=120)
+        self.tree_firmas.column("Estado", width=70)
+        self.tree_firmas.column("Firmante", width=120)
+        self.tree_firmas.column("Fecha", width=80)
+        self.tree_firmas.column("Tipo", width=100)
+        self.tree_firmas.column("Magnitud", width=80)
         
-        tk.Button(btn_frame, text="📄 Exportar a CSV", 
-                 command=self.exportar_firmas_csv,
-                 bg="#27ae60", fg="white", font=("Segoe UI", 9, "bold"),
-                 relief=tk.FLAT, padx=12, pady=6).pack(side=tk.LEFT, padx=4)
+        scrollbar = ttk.Scrollbar(results_frame, orient="vertical", command=self.tree_firmas.yview)
+        self.tree_firmas.configure(yscrollcommand=scrollbar.set)
         
-        tk.Button(btn_frame, text="🗑️ Limpiar", 
-                 command=self.limpiar_tabla_firmas,
-                 bg="#e74c3c", fg="white", font=("Segoe UI", 9, "bold"),
-                 relief=tk.FLAT, padx=12, pady=6).pack(side=tk.LEFT, padx=4)
-        
-        # Tree frame
-        tree_frame = tk.Frame(main_frame, bg="#e9eef7")
-        tree_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Scrollbars
-        vsb = ttk.Scrollbar(tree_frame, orient="vertical")
-        hsb = ttk.Scrollbar(tree_frame, orient="horizontal")
-        
-        # Treeview
-        self.tree_firmas = ttk.Treeview(tree_frame, 
-                                       columns=("archivo", "firmante", "fecha", "certificado"),
-                                       show="headings",
-                                       yscrollcommand=vsb.set,
-                                       xscrollcommand=hsb.set)
-        
-        vsb.config(command=self.tree_firmas.yview)
-        hsb.config(command=self.tree_firmas.xview)
-        
-        # Columnas
-        self.tree_firmas.heading("archivo", text="Archivo")
-        self.tree_firmas.heading("firmante", text="Firmante")
-        self.tree_firmas.heading("fecha", text="Fecha de Firma")
-        self.tree_firmas.heading("certificado", text="Emisor del Certificado")
-        
-        self.tree_firmas.column("archivo", width=180)
-        self.tree_firmas.column("firmante", width=150)
-        self.tree_firmas.column("fecha", width=130)
-        self.tree_firmas.column("certificado", width=150)
-        
-        # Grid
-        self.tree_firmas.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-        hsb.grid(row=1, column=0, sticky="ew")
-        
-        tree_frame.grid_rowconfigure(0, weight=1)
-        tree_frame.grid_columnconfigure(0, weight=1)
+        self.tree_firmas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=8, pady=8)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=8)
     
-    def setup_tab_analisis_estadistico(self, parent):
-        """Tab de Análisis Estadístico - Módulo en construcción"""
-        main_frame = tk.Frame(parent, bg="#e9eef7")
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=5)
-        
-        # Header principal con gradiente visual
-        header_frame = tk.Frame(main_frame, bg="#2c3e50", relief=tk.RIDGE, bd=2)
-        header_frame.pack(fill=tk.X, pady=(0, 15))
-        
-        tk.Label(header_frame, text="📊 ANÁLISIS ESTADÍSTICO", 
-                bg="#2c3e50", fg="white", font=("Segoe UI", 13, "bold")).pack(pady=12)
-        
-        # Subtítulo con estado
-        estado_frame = tk.Frame(header_frame, bg="#34495e")
-        estado_frame.pack(fill=tk.X, pady=(0, 12))
-        
-        tk.Label(estado_frame, text="🔧 Módulo de Análisis Estadístico - En proceso de creación", 
-                bg="#34495e", fg="#f39c12", font=("Segoe UI", 10, "bold")).pack(pady=8)
-        
-        # Container principal con scroll
-        canvas = tk.Canvas(main_frame, bg="#e9eef7", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg="#e9eef7")
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Frame de pruebas estadísticas
-        pruebas_frame = tk.LabelFrame(scrollable_frame, text="🧮 Pruebas estadísticas previstas", 
-                                     bg="#ffffff", fg="#1f618d", font=("Segoe UI", 11, "bold"),
-                                     relief=tk.GROOVE, bd=3, padx=20, pady=15)
-        pruebas_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 12), padx=20)
-        
-        # Sección 1: Pruebas de Normalidad
-        seccion1 = tk.Frame(pruebas_frame, bg="#ffffff")
-        seccion1.pack(fill=tk.X, pady=8)
-        
-        tk.Label(seccion1, text="🔍", bg="#ffffff", font=("Segoe UI", 14)).pack(side=tk.LEFT, padx=(0, 8))
-        tk.Label(seccion1, text="Pruebas de normalidad:", 
-                bg="#ffffff", fg="#2c3e50", font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT)
-        
-        tk.Label(pruebas_frame, text="   • Shapiro-Wilk\n   • Kolmogorov-Smirnov", 
-                bg="#ffffff", fg="#34495e", font=("Segoe UI", 9), justify=tk.LEFT).pack(anchor="w", padx=30)
-        
-        # Separador
-        tk.Frame(pruebas_frame, height=2, bg="#bdc3c7").pack(fill=tk.X, pady=10)
-        
-        # Sección 2: Pruebas No Paramétricas
-        seccion2 = tk.Frame(pruebas_frame, bg="#ffffff")
-        seccion2.pack(fill=tk.X, pady=8)
-        
-        tk.Label(seccion2, text="📊", bg="#ffffff", font=("Segoe UI", 14)).pack(side=tk.LEFT, padx=(0, 8))
-        tk.Label(seccion2, text="Pruebas no paramétricas:", 
-                bg="#ffffff", fg="#2c3e50", font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT)
-        
-        tk.Label(pruebas_frame, text="   • Mann-Whitney U\n   • Wilcoxon", 
-                bg="#ffffff", fg="#34495e", font=("Segoe UI", 9), justify=tk.LEFT).pack(anchor="w", padx=30)
-        
-        # Separador
-        tk.Frame(pruebas_frame, height=2, bg="#bdc3c7").pack(fill=tk.X, pady=10)
-        
-        # Sección 3: Comparación de Medias
-        seccion3 = tk.Frame(pruebas_frame, bg="#ffffff")
-        seccion3.pack(fill=tk.X, pady=8)
-        
-        tk.Label(seccion3, text="📈", bg="#ffffff", font=("Segoe UI", 14)).pack(side=tk.LEFT, padx=(0, 8))
-        tk.Label(seccion3, text="Pruebas de comparación de medias:", 
-                bg="#ffffff", fg="#2c3e50", font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT)
-        
-        tk.Label(pruebas_frame, text="   • t-test (Student)\n   • ANOVA (Análisis de Varianza)", 
-                bg="#ffffff", fg="#34495e", font=("Segoe UI", 9), justify=tk.LEFT).pack(anchor="w", padx=30)
-        
-        # Separador
-        tk.Frame(pruebas_frame, height=2, bg="#bdc3c7").pack(fill=tk.X, pady=10)
-        
-        # Sección 4: Incertidumbre (NUEVO)
-        seccion4 = tk.Frame(pruebas_frame, bg="#ffffff")
-        seccion4.pack(fill=tk.X, pady=8)
-        
-        tk.Label(seccion4, text="🎯", bg="#ffffff", font=("Segoe UI", 14)).pack(side=tk.LEFT, padx=(0, 8))
-        tk.Label(seccion4, text="Estimación de incertidumbre y varianza combinada", 
-                bg="#ffffff", fg="#2c3e50", font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT)
-        
-        tk.Label(pruebas_frame, text="   • Cálculo de incertidumbre tipo A y tipo B\n   • Varianza combinada y expandida\n   • Factor de cobertura k", 
-                bg="#ffffff", fg="#34495e", font=("Segoe UI", 9), justify=tk.LEFT).pack(anchor="w", padx=30)
-        
-        # Separador
-        tk.Frame(pruebas_frame, height=2, bg="#bdc3c7").pack(fill=tk.X, pady=10)
-        
-        # Sección 5: Gráficos
-        seccion5 = tk.Frame(pruebas_frame, bg="#ffffff")
-        seccion5.pack(fill=tk.X, pady=8)
-        
-        tk.Label(seccion5, text="📉", bg="#ffffff", font=("Segoe UI", 14)).pack(side=tk.LEFT, padx=(0, 8))
-        tk.Label(seccion5, text="Gráficos estadísticos:", 
-                bg="#ffffff", fg="#2c3e50", font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT)
-        
-        tk.Label(pruebas_frame, text="   • Histogramas de distribución\n   • Boxplot (Diagramas de caja)\n   • QQ-Plot (Gráficos cuantil-cuantil)\n   • Gráficos de control", 
-                bg="#ffffff", fg="#34495e", font=("Segoe UI", 9), justify=tk.LEFT).pack(anchor="w", padx=30)
-        
-        # Frame de tecnologías
-        tech_frame = tk.LabelFrame(scrollable_frame, text="🔧 Tecnologías de implementación", 
-                                  bg="#ffffff", fg="#1f618d", font=("Segoe UI", 11, "bold"),
-                                  relief=tk.GROOVE, bd=3, padx=20, pady=15)
-        tech_frame.pack(fill=tk.X, pady=(0, 12), padx=20)
-        
-        # Iconos y tecnologías
-        tech_items = [
-            ("🐍", "SciPy", "Análisis estadístico científico"),
-            ("🐼", "Pandas", "Manipulación y análisis de datos"),
-            ("📊", "Matplotlib", "Visualización de gráficos"),
-            ("📉", "Seaborn", "Gráficos estadísticos avanzados"),
-            ("🔢", "NumPy", "Computación numérica")
-        ]
-        
-        for emoji, tech, desc in tech_items:
-            item_frame = tk.Frame(tech_frame, bg="#ffffff")
-            item_frame.pack(fill=tk.X, pady=4)
-            
-            tk.Label(item_frame, text=emoji, bg="#ffffff", font=("Segoe UI", 12)).pack(side=tk.LEFT, padx=(0, 10))
-            tk.Label(item_frame, text=f"{tech}:", bg="#ffffff", fg="#2c3e50", 
-                    font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT, padx=(0, 5))
-            tk.Label(item_frame, text=desc, bg="#ffffff", fg="#7f8c8d", 
-                    font=("Segoe UI", 8)).pack(side=tk.LEFT)
-        
-        # Banner de estado final
-        footer_frame = tk.Frame(scrollable_frame, bg="#27ae60", relief=tk.RAISED, bd=2)
-        footer_frame.pack(fill=tk.X, pady=(0, 15), padx=20)
-        
-        tk.Label(footer_frame, text="✨ Próximamente disponible", 
-                bg="#27ae60", fg="white", font=("Segoe UI", 11, "bold")).pack(pady=10)
-        
-        tk.Label(footer_frame, 
-                text="Este módulo se integrará con las funcionalidades de procesamiento\n"
-                     "para ofrecer análisis estadístico completo de los datos de certificación",
-                bg="#27ae60", fg="white", font=("Segoe UI", 8), justify=tk.CENTER).pack(pady=(0, 10))
-        
-        # Empaquetar canvas y scrollbar
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-    
-    # ==================== MÉTODOS DE GESTIÓN DE ARCHIVOS ====================
-    
-    def seleccionar_archivos(self):
-        archivos = filedialog.askopenfilenames(
-            title="Seleccionar archivos PDF",
-            filetypes=[("Archivos PDF", "*.pdf")]
-        )
-        if archivos:
-            self.archivos_pendientes.extend(archivos)
-            self.actualizar_lista_archivos()
-            self.btn_procesar.config(state=tk.NORMAL)
-            self._insertar_log(f"✅ {len(archivos)} archivo(s) agregado(s).\n", "success")
+    # =========================================================================
+    # MÉTODOS PARA CARGA DE PATRONES - CORREGIDOS
+    # =========================================================================
     
     def seleccionar_patrones(self):
-        """Seleccionar archivos PDF para cargar como patrones"""
         archivos = filedialog.askopenfilenames(
-            title="Seleccionar patrones PDF",
-            filetypes=[("Archivos PDF", "*.pdf")]
+            title="Seleccionar Patrones PDF",
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
         )
+        
         if archivos:
-            self.patrones_pendientes.extend(archivos)
-            self.actualizar_lista_patrones()
-            self.btn_cargar_patrones.config(state=tk.NORMAL)
-            self._insertar_log_patrones(f"✅ {len(archivos)} patrón(es) agregado(s).\n", "success")
+            agregados = 0
+            for archivo in archivos:
+                if archivo not in self.patrones_pendientes:
+                    self.patrones_pendientes.append(archivo)
+                    self.lista_patrones.insert(tk.END, os.path.basename(archivo))
+                    agregados += 1
+            
+            if agregados > 0:
+                self._insertar_log_patrones(f"✅ {agregados} patrón(es) agregado(s).\n", "success")
+                self._actualizar_estado_patrones()
     
-    def actualizar_lista_archivos(self):
-        self.lista_archivos.delete(0, tk.END)
-        for archivo in self.archivos_pendientes:
-            self.lista_archivos.insert(tk.END, os.path.basename(archivo))
+    def patrones_arrastrados(self, event):
+        try:
+            archivos = self.root.tk.splitlist(event.data)
+            archivos_pdf = [f for f in archivos if f.lower().endswith('.pdf')]
+            
+            if archivos_pdf:
+                agregados = 0
+                for archivo in archivos_pdf:
+                    if archivo not in self.patrones_pendientes:
+                        self.patrones_pendientes.append(archivo)
+                        self.lista_patrones.insert(tk.END, os.path.basename(archivo))
+                        agregados += 1
+                
+                if agregados > 0:
+                    self._insertar_log_patrones(f"✅ {agregados} patrón(es) arrastrado(s).\n", "success")
+                    self._actualizar_estado_patrones()
+        except Exception as e:
+            self._insertar_log_patrones(f"❌ Error al arrastrar: {e}\n", "error")
     
-    def actualizar_lista_patrones(self):
-        """Actualizar lista de patrones pendientes"""
+    def limpiar_todo_patrones(self):  # NUEVO MÉTODO CORREGIDO
+        """Limpia completamente la pestaña de patrones"""
+        self.cargando_patrones = False
+        self.patrones_pendientes.clear()
         self.lista_patrones.delete(0, tk.END)
-        for archivo in self.patrones_pendientes:
-            self.lista_patrones.insert(tk.END, os.path.basename(archivo))
-    
-    def limpiar_todo(self):
-        if messagebox.askyesno("Confirmar", "¿Desea limpiar todos los archivos y reiniciar?"):
-            self.archivos_pendientes.clear()
-            self.actualizar_lista_archivos()
-            self.btn_procesar.config(state=tk.DISABLED)
-            self.progress["value"] = 0
-            self.archivos_procesados = 0
-            self.total_archivos = 0
-            self.lbl_estado_global.config(text="Esperando archivos...", fg="#1f618d")
-            self.log_widget.config(state=tk.NORMAL)
-            self.log_widget.delete(1.0, tk.END)
-            self.log_widget.config(state=tk.DISABLED)
-            self.ultimo_mensaje_log = ""
-            self.vinculos_unicos.clear()
-            self._insertar_log("🔄 Sistema reiniciado.\n", "info")
-    
-    def limpiar_lista_patrones(self):
-        """Limpiar lista de patrones"""
-        if messagebox.askyesno("Confirmar", "¿Desea limpiar la lista de patrones?"):
-            self.patrones_pendientes.clear()
-            self.actualizar_lista_patrones()
-            self.btn_cargar_patrones.config(state=tk.DISABLED)
-            self.progress_patrones["value"] = 0
-            self.patrones_procesados = 0
-            self.total_patrones = 0
-            self.lbl_estado_patrones.config(text="Esperando archivos...", fg="#1f618d")
+        self.patrones_procesados = 0
+        self.total_patrones = 0
+        self.progress_patrones["value"] = 0
+        self.progress_patrones["maximum"] = 100
+        self.ultimo_mensaje_log_patrones = ""
+        
+        # Limpiar el log de patrones
+        if self.log_patrones:
             self.log_patrones.config(state=tk.NORMAL)
-            self.log_patrones.delete(1.0, tk.END)
-            self.log_patrones.config(state=tk.DISABLED)
-            self.ultimo_mensaje_log_patrones = ""
-            self._insertar_log_patrones("🔄 Lista de patrones limpiada.\n", "info")
-    
-    # ==================== MÉTODOS DE LOG ====================
-    
-    def _insertar_log(self, mensaje, tipo="info"):
-        """Insertar mensaje en el log de procesamiento (evita duplicados)"""
-        if mensaje != self.ultimo_mensaje_log:
-            self.cola_log.put(("log_procesamiento", mensaje, tipo))
-            self.ultimo_mensaje_log = mensaje
-    
-    def _insertar_log_patrones(self, mensaje, tipo="info"):
-        """Insertar mensaje en el log de patrones (evita duplicados)"""
-        if mensaje != self.ultimo_mensaje_log_patrones:
-            self.cola_log_patrones.put((mensaje, tipo))
-            self.ultimo_mensaje_log_patrones = mensaje
-    
-    def procesar_cola_log(self):
-        """Procesar mensajes del log de procesamiento"""
-        try:
-            while True:
-                tipo_log, mensaje, tag = self.cola_log.get_nowait()
-                if tipo_log == "log_procesamiento":
-                    self.log_widget.config(state=tk.NORMAL)
-                    self.log_widget.insert(tk.END, mensaje, tag)
-                    self.log_widget.see(tk.END)
-                    self.log_widget.config(state=tk.DISABLED)
-        except queue.Empty:
-            pass
-        self.root.after(100, self.procesar_cola_log)
-    
-    def procesar_cola_log_patrones(self):
-        """Procesar mensajes del log de patrones"""
-        try:
-            while True:
-                mensaje, tag = self.cola_log_patrones.get_nowait()
-                self.log_patrones.config(state=tk.NORMAL)
-                self.log_patrones.insert(tk.END, mensaje, tag)
-                self.log_patrones.see(tk.END)
-                self.log_patrones.config(state=tk.DISABLED)
-        except queue.Empty:
-            pass
-        self.root.after(100, self.procesar_cola_log_patrones)
-    
-    def procesar_cola_comandos(self):
-        """Procesar comandos desde otros hilos"""
-        try:
-            while True:
-                comando, datos = self.cola_comandos.get_nowait()
-                if comando == "actualizar_tabla_firmas":
-                    self._actualizar_tabla_firmas_ui(datos)
-        except queue.Empty:
-            pass
-        self.root.after(100, self.procesar_cola_comandos)
-    
-    # ==================== MÉTODOS DE FIRMAS ====================
-    
-    def actualizar_tabla_firmas(self):
-        """Actualizar tabla de firmas con datos recientes"""
-        if not self.datos_firmas:
-            messagebox.showinfo("Info", "No hay datos de firmas para mostrar")
-            return
-        self._actualizar_tabla_firmas_ui(self.datos_firmas)
-    
-    def _actualizar_tabla_firmas_ui(self, datos):
-        """Actualizar UI de tabla de firmas"""
-        for item in self.tree_firmas.get_children():
-            self.tree_firmas.delete(item)
+            self.log_patrones.delete("1.0", tk.END)
         
-        for dato in datos:
-            self.tree_firmas.insert("", tk.END, values=(
-                dato.get("archivo", ""),
-                dato.get("firmante", ""),
-                dato.get("fecha", ""),
-                dato.get("certificado", "")
-            ))
+        self.lbl_estado_patrones.config(text="Esperando archivos...", fg="#9b59b6")
+        self.btn_cargar_patrones.config(state=tk.NORMAL, bg="#9b59b6")
+        self._insertar_log_patrones("🧹 TODO ha sido limpiado correctamente.\n", "success")
     
-    def limpiar_tabla_firmas(self):
-        """Limpiar tabla de firmas"""
-        if messagebox.askyesno("Confirmar", "¿Desea limpiar los datos de firmas?"):
-            for item in self.tree_firmas.get_children():
-                self.tree_firmas.delete(item)
-            self.datos_firmas.clear()
-    
-    def exportar_firmas_csv(self):
-        """Exportar datos de firmas a CSV"""
-        if not self.datos_firmas:
-            messagebox.showinfo("Info", "No hay datos para exportar")
-            return
-        
-        archivo = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV", "*.csv")],
-            title="Guardar datos de firmas"
-        )
-        
-        if archivo:
-            try:
-                import csv
-                with open(archivo, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.DictWriter(f, fieldnames=["archivo", "firmante", "fecha", "certificado"])
-                    writer.writeheader()
-                    writer.writerows(self.datos_firmas)
-                messagebox.showinfo("Éxito", "Datos exportados correctamente")
-            except Exception as e:
-                messagebox.showerror("Error", f"Error al exportar: {str(e)}")
-    
-    # ==================== MÉTODOS DE DRIVE ====================
-    
-    def inicializar_drive(self):
-        """Inicializar conexión con Drive"""
-        try:
-            if not self.magnitude_manager.verificar_autenticacion():
-                messagebox.showwarning("Advertencia", 
-                    "No se pudo autenticar con Google Drive.\n"
-                    "Algunas funciones pueden no estar disponibles.")
-                return
-            
-            if not self.magnitude_manager.verificar_configuracion():
-                messagebox.showinfo("Configuración requerida",
-                    "Es necesario configurar las carpetas de Drive.\n"
-                    "Por favor, vaya a Configuración > Configurar carpetas Drive")
-                return
-            
-            # Cargar lista de patrones existentes
-            self.actualizar_lista_patrones_drive()
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al inicializar Drive: {str(e)}")
-    
-    def actualizar_lista_patrones_drive(self):
-        """Actualizar lista de patrones existentes en Drive"""
-        try:
-            folder_id = self.magnitude_manager.folder_patrones
-            if folder_id:
-                archivos = self.magnitude_manager.listar_archivos_drive(folder_id)
-                self.patrones_existentes_drive = {archivo['name'] for archivo in archivos}
-                self._insertar_log_patrones(
-                    f"📂 {len(self.patrones_existentes_drive)} patrones encontrados en Drive.\n", 
-                    "info"
-                )
-        except Exception as e:
-            self._insertar_log_patrones(f"⚠️ Error al listar patrones: {str(e)}\n", "error")
-    
-    def cambiar_magnitud(self):
-        """Abrir selector de magnitud"""
-        selector = MagnitudeSelector(self.root, self.magnitude_manager)
-        magnitud_seleccionada = selector.get_selection()
-        
-        if magnitud_seleccionada:
-            self.magnitude_manager.set_magnitud_actual(magnitud_seleccionada)
-            self.actualizar_display_magnitud()
-            messagebox.showinfo("Éxito", 
-                f"Magnitud cambiada a: {self.magnitude_manager.get_nombre_magnitud()}")
-    
-    def actualizar_display_magnitud(self):
-        """Actualizar display de magnitud actual"""
-        nombre_magnitud = self.magnitude_manager.get_nombre_magnitud()
-        emoji = self.magnitude_manager.get_emoji_magnitud()
-        
-        self.lbl_magnitud_actual.config(
-            text=f"{emoji} Magnitud actual: {nombre_magnitud}"
-        )
-        
-        if hasattr(self, 'lbl_magnitud_archivos'):
-            self.lbl_magnitud_archivos.config(
-                text=f"Los archivos se guardarán en: {emoji} {nombre_magnitud}"
-            )
-    
-    # ==================== MÉTODOS DE PROCESAMIENTO ====================
-    
-    def iniciar_procesamiento_simple(self):
-        """Iniciar procesamiento simplificado"""
-        if not self.archivos_pendientes:
-            messagebox.showwarning("Advertencia", "No hay archivos para procesar")
-            return
-        
-        if self.procesando:
-            messagebox.showwarning("Advertencia", "Ya hay un procesamiento en curso")
-            return
-        
-        self.procesando = True
-        self.btn_procesar.config(state=tk.DISABLED, bg="#95a5a6")
-        self.archivos_procesados = 0
-        self.total_archivos = len(self.archivos_pendientes)
-        self.progress["maximum"] = self.total_archivos
-        self.progress["value"] = 0
-        
-        self._insertar_log(f"\n{'='*60}\n", "info")
-        self._insertar_log(f"🚀 INICIANDO PROCESAMIENTO - {self.total_archivos} archivo(s)\n", "info")
-        self._insertar_log(f"{'='*60}\n\n", "info")
-        
-        # Procesar en hilo separado
-        thread = threading.Thread(target=self.procesar_archivos_secuencial, daemon=True)
-        thread.start()
+    def _actualizar_estado_patrones(self):
+        """Actualiza el estado de la interfaz de patrones"""
+        total = len(self.patrones_pendientes)
+        self.lbl_estado_patrones.config(text=f"Patrones listos: {total}")
+        self.btn_cargar_patrones.config(state=tk.NORMAL if total > 0 else tk.DISABLED, 
+                                      bg="#9b59b6" if total > 0 else "#95a5a6")
     
     def iniciar_carga_patrones(self):
-        """Iniciar carga de patrones a Drive"""
         if not self.patrones_pendientes:
-            messagebox.showwarning("Advertencia", "No hay patrones para cargar")
+            messagebox.showwarning("Sin Patrones", "No hay patrones para subir.", parent=self.root)
             return
         
         if self.cargando_patrones:
-            messagebox.showwarning("Advertencia", "Ya hay una carga en curso")
+            messagebox.showwarning("Procesando", "Ya hay una carga en proceso.", parent=self.root)
             return
         
-        # Actualizar lista de patrones existentes antes de cargar
-        self.actualizar_lista_patrones_drive()
+        if not self.magnitude_manager.drive:
+            messagebox.showerror("Error Drive", "No hay conexión con Google Drive.", parent=self.root)
+            return
+        
+        respuesta = messagebox.askyesno(
+            "Confirmar Subida",
+            f"¿Subir {len(self.patrones_pendientes)} patrón(es) a Drive?\n\n"
+            "• Carpeta: Patrones\n"
+            "• Permisos: Cualquiera con el enlace (Lector)",
+            parent=self.root
+        )
+        
+        if not respuesta:
+            return
         
         self.cargando_patrones = True
-        self.btn_cargar_patrones.config(state=tk.DISABLED, bg="#95a5a6")
         self.patrones_procesados = 0
         self.total_patrones = len(self.patrones_pendientes)
+        
         self.progress_patrones["maximum"] = self.total_patrones
         self.progress_patrones["value"] = 0
         
+        self.btn_cargar_patrones.config(state=tk.DISABLED, bg="#7f8c8d")
+        self.lbl_estado_patrones.config(text="Subiendo patrones...", fg="#9b59b6")
+        
+        # Limpiar log antes de empezar
+        self.log_patrones.delete(1.0, tk.END)
+        self.ultimo_mensaje_log_patrones = ""
+        
         self._insertar_log_patrones(f"\n{'='*60}\n", "info")
-        self._insertar_log_patrones(f"🚀 INICIANDO CARGA DE PATRONES - {self.total_patrones} archivo(s)\n", "info")
+        self._insertar_log_patrones(f"🚀 CARGA DE {self.total_patrones} PATRONES\n", "info")
         self._insertar_log_patrones(f"{'='*60}\n\n", "info")
         
-        # Procesar en hilo separado
-        thread = threading.Thread(target=self.cargar_patrones_secuencial, daemon=True)
+        self._cargar_patrones_existentes_drive()
+        
+        thread = threading.Thread(target=self._procesar_carga_patrones_thread, daemon=True)
         thread.start()
     
-    def cargar_patrones_secuencial(self):
-        """Cargar patrones secuencialmente"""
-        folder_id = self.magnitude_manager.folder_patrones
+    def _cargar_patrones_existentes_drive(self):
+        try:
+            self._insertar_log_patrones("🔍 Verificando patrones en Drive...\n", "info")
+            
+            folder_id = self.magnitude_manager.folder_patrones
+            query = f"'{folder_id}' in parents and trashed=false"
+            results = self.magnitude_manager.drive.ListFile({'q': query}).GetList()
+            
+            self.patrones_existentes_drive = {r['title'] for r in results}
+            
+            if self.patrones_existentes_drive:
+                self._insertar_log_patrones(f"📋 {len(self.patrones_existentes_drive)} patrón(es) existente(s).\n", "info")
+            else:
+                self._insertar_log_patrones("📋 No hay patrones previos.\n", "info")
+            
+        except Exception as e:
+            self._insertar_log_patrones(f"⚠️ Error verificando: {e}\n", "warning")
+            self.patrones_existentes_drive = set()
+    
+    def _procesar_carga_patrones_thread(self):
+        for patron in self.patrones_pendientes[:]:
+            try:
+                self._subir_patron_individual(patron)
+                self.patrones_procesados += 1
+                self._ejecutar_en_principal(self._actualizar_progreso_patrones)
+                
+                if patron in self.patrones_pendientes:
+                    self.patrones_pendientes.remove(patron)
+                    
+            except Exception as e:
+                self._insertar_log_patrones(f"❌ Error: {str(e)}\n", "error")
+                self.patrones_procesados += 1
+                self._ejecutar_en_principal(self._actualizar_progreso_patrones)
         
-        if not folder_id:
-            self._insertar_log_patrones("❌ Error: Carpeta de patrones no configurada\n", "error")
-            self._ejecutar_en_principal(self.carga_patrones_completada)
+        self._ejecutar_en_principal(self._carga_patrones_completada)
+    
+    def _subir_patron_individual(self, archivo_path):
+        nombre_archivo = os.path.basename(archivo_path)
+        self._insertar_log_patrones(f"\n{'─'*60}\n", "info")
+        self._insertar_log_patrones(f"📄 {nombre_archivo}\n", "info")
+        
+        # Verificar duplicados
+        if nombre_archivo in self.patrones_existentes_drive:
+            self._insertar_log_patrones(f"   ⚠️ YA EXISTE en Drive\n", "duplicado")
+            self._insertar_log_patrones(f"   ❌ SUBIDA CANCELADA\n", "error")
             return
         
-        archivos_a_cargar = list(self.patrones_pendientes)
-        
-        for archivo in archivos_a_cargar:
-            nombre_archivo = os.path.basename(archivo)
-            
-            # Verificar si ya existe
-            if nombre_archivo in self.patrones_existentes_drive:
-                self._insertar_log_patrones(f"⚠️ {nombre_archivo} - Ya existe en Drive (omitido)\n", "warning")
+        # Verificar firma
+        self._insertar_log_patrones("   🔍 Verificando firma...\n", "info")
+        try:
+            firmado = self.signature_analyzer.verificar_si_pdf_firmado(archivo_path)
+            if firmado:
+                self._insertar_log_patrones("   ✅ PDF FIRMADO\n", "success")
             else:
-                self._insertar_log_patrones(f"📤 Subiendo: {nombre_archivo}\n", "info")
-                
-                try:
-                    result = self.magnitude_manager.subir_archivo_drive(archivo, folder_id)
-                    if result:
-                        self._insertar_log_patrones(f"   ✅ Subido correctamente\n", "success")
-                        self.patrones_existentes_drive.add(nombre_archivo)
-                    else:
-                        self._insertar_log_patrones(f"   ❌ Error al subir\n", "error")
-                except Exception as e:
-                    self._insertar_log_patrones(f"   ❌ Error: {str(e)}\n", "error")
-            
-            self.patrones_procesados += 1
-            self._ejecutar_en_principal(self.actualizar_progreso_patrones)
-            
-            if archivo in self.patrones_pendientes:
-                self.patrones_pendientes.remove(archivo)
+                self._insertar_log_patrones("   ⚠️ PDF NO FIRMADO\n", "warning")
+        except Exception as e:
+            self._insertar_log_patrones(f"   ⚠️ Error firma: {e}\n", "warning")
+            firmado = False
         
-        self._ejecutar_en_principal(self.carga_patrones_completada)
+        # Subir a Drive
+        self._insertar_log_patrones("   ⬆️ Subiendo a Drive...\n", "info")
+        
+        try:
+            folder_id = self.magnitude_manager.folder_patrones
+            
+            file = self.magnitude_manager.drive.CreateFile({
+                'title': nombre_archivo,
+                'parents': [{'id': folder_id}]
+            })
+            file.SetContentFile(archivo_path)
+            file.Upload()
+            
+            # Configurar permisos
+            file.InsertPermission({
+                'type': 'anyone',
+                'role': 'reader',
+                'withLink': True
+            })
+            
+            file_id = file['id']
+            enlace = f"https://drive.google.com/file/d/{file_id}/view"
+            
+            self._insertar_log_patrones("   ✅ Subido exitosamente\n", "success")
+            self._insertar_log_patrones("   🔗 Enlace:\n", "enlace")
+            self._insertar_log_patrones(f"      {enlace}\n", "enlace")
+            
+            self.patrones_existentes_drive.add(nombre_archivo)
+            
+        except Exception as e:
+            self._insertar_log_patrones(f"   ❌ ERROR: {str(e)}\n", "error")
+            raise
     
-    def actualizar_progreso_patrones(self):
-        """Actualizar progreso de carga de patrones"""
+    def _actualizar_progreso_patrones(self):
         self.progress_patrones["value"] = self.patrones_procesados
         self.lbl_estado_patrones.config(
             text=f"Procesados: {self.patrones_procesados}/{self.total_patrones}"
         )
     
-    def carga_patrones_completada(self):
-        """Finalizar carga de patrones"""
+    def _carga_patrones_completada(self):
         self.cargando_patrones = False
-        self.btn_cargar_patrones.config(state=tk.NORMAL, bg="#f39c12")
+        self.btn_cargar_patrones.config(state=tk.NORMAL, bg="#9b59b6")
+        
         self.lbl_estado_patrones.config(
-            text=f"Carga completada: {self.patrones_procesados}/{self.total_patrones} archivos", 
+            text=f"✅ Completado: {self.patrones_procesados}/{self.total_patrones}",
             fg="#27ae60"
         )
+        
+        self._insertar_log_patrones(f"\n{'='*60}\n", "success")
         self._insertar_log_patrones(
-            f"\n✅ CARGA COMPLETADA: {self.patrones_procesados} de {self.total_patrones} archivos procesados.\n", 
+            f"✅ COMPLETADO: {self.patrones_procesados}/{self.total_patrones}\n",
             "success"
         )
+        self._insertar_log_patrones(f"{'='*60}\n\n", "success")
+        
+        # Limpiar la lista de archivos procesados
+        self.lista_patrones.delete(0, tk.END)
+        
+        messagebox.showinfo(
+            "Carga Completada",
+            f"✅ {self.patrones_procesados}/{self.total_patrones} patrones procesados",
+            parent=self.root
+        )
     
-    def _ejecutar_en_principal(self, funcion):
-        """Ejecutar función en el hilo principal"""
-        self.root.after(0, funcion)
+    def _insertar_log_patrones(self, texto, tag="info"):
+        self.cola_log_patrones.put((texto, tag))
     
-    def procesar_archivos_secuencial(self):
-        """Procesar archivos de manera secuencial"""
-        archivos_a_procesar = list(self.archivos_pendientes)
+    def procesar_cola_log_patrones(self):
+        """Procesa los mensajes de la cola de logs de patrones"""
+        try:
+            while True:
+                mensaje, tag = self.cola_log_patrones.get_nowait()
+                self._insertar_log_patrones_directo(mensaje, tag)
+        except queue.Empty:
+            pass
+        finally:
+            self.root.after(100, self.procesar_cola_log_patrones)
+    
+    def _insertar_log_patrones_directo(self, mensaje, tag=None):
+        """Inserta directamente en el log de patrones (solo en hilo principal)"""
+        if not self.log_patrones:
+            return
+            
+        current_state = self.log_patrones.cget('state')
+        if current_state == tk.DISABLED:
+            self.log_patrones.config(state=tk.NORMAL)
+        
+        mensaje_limpio = mensaje.strip()
+        if mensaje_limpio and mensaje_limpio != self.ultimo_mensaje_log_patrones:
+            if tag:
+                self.log_patrones.insert(tk.END, mensaje, tag)
+            else:
+                self.log_patrones.insert(tk.END, mensaje)
+            self.log_patrones.see(tk.END)
+            self.ultimo_mensaje_log_patrones = mensaje_limpio
+    
+    # =========================================================================
+    # MÉTODOS EXISTENTES MEJORADOS
+    # =========================================================================
+    
+    def cambiar_magnitud(self):
+        selector = MagnitudeSelector(self.root, self.magnitude_manager)
+        nueva_magnitud = selector.show_selector()
+        
+        if nueva_magnitud:
+            self.magnitude_manager.magnitud_seleccionada = nueva_magnitud
+            self.actualizar_display_magnitud()
+            self._insertar_log(f"📁 Magnitud cambiada a: {self.magnitude_manager.MAGNITUDES[nueva_magnitud]}\n", "magnitud")
+    
+    def actualizar_display_magnitud(self):
+        magnitud_actual = self.magnitude_manager.magnitud_seleccionada or "temperatura"
+        nombre_magnitud = self.magnitude_manager.MAGNITUDES[magnitud_actual]
+        
+        self.lbl_magnitud_actual.config(text=f"📁 Magnitud actual: {nombre_magnitud}")
+        self.lbl_magnitud_archivos.config(text=f"Los archivos se guardarán en: {nombre_magnitud}")
+    
+    def inicializar_drive(self):
+        try:
+            self.magnitude_manager.autenticar()
+            self._insertar_log("✅ Autenticación con Google Drive exitosa.\n", "success")
+            self.magnitude_manager.crear_subcarpetas_magnitudes()
+            self._insertar_log("✅ Subcarpetas de magnitudes configuradas.\n", "success")
+        except Exception as e:
+            self._insertar_log(f"❌ Error autenticando con Google Drive: {e}\n", "error")
+            messagebox.showerror("Error de Autenticación", f"No se pudo autenticar con Google Drive:\n{e}")
+    
+    def procesar_cola_log(self):
+        """Procesa los mensajes de la cola de logs"""
+        try:
+            while True:
+                mensaje, tag = self.cola_log.get_nowait()
+                self._insertar_log_directo(mensaje, tag)
+        except queue.Empty:
+            pass
+        finally:
+            self.root.after(100, self.procesar_cola_log)
+    
+    def procesar_cola_comandos(self):
+        """Procesa comandos para ejecutar en el hilo principal"""
+        try:
+            while True:
+                comando, args = self.cola_comandos.get_nowait()
+                comando(*args)
+        except queue.Empty:
+            pass
+        finally:
+            self.root.after(100, self.procesar_cola_comandos)
+    
+    def _insertar_log_directo(self, mensaje, tag=None):
+        """Inserta directamente en el log (solo en hilo principal)"""
+        current_state = self.log_widget.cget('state')
+        if current_state == tk.DISABLED:
+            self.log_widget.config(state=tk.NORMAL)
+        
+        mensaje_limpio = mensaje.strip()
+        if mensaje_limpio and mensaje_limpio != self.ultimo_mensaje_log:
+            if tag:
+                self.log_widget.insert(tk.END, mensaje, tag)
+            else:
+                self.log_widget.insert(tk.END, mensaje)
+            self.log_widget.see(tk.END)
+            self.ultimo_mensaje_log = mensaje_limpio
+    
+    def _insertar_log(self, mensaje, tag=None):
+        """Método seguro para insertar logs desde cualquier hilo"""
+        self.cola_log.put((mensaje, tag))
+    
+    def _ejecutar_en_principal(self, comando, *args):
+        """Ejecuta un comando en el hilo principal"""
+        self.cola_comandos.put((comando, args))
+    
+    def mostrar_vinculos_unicos(self, vinculos_unicos):
+        """Muestra los vínculos únicos encontrados en formato compacto"""
+        if not vinculos_unicos:
+            return
+        
+        # Convertir a lista y ordenar
+        vinculos_lista = sorted(list(vinculos_unicos), key=lambda x: x[0])  # Ordenar por certificado
+        
+        self._insertar_log("🔍 Vínculos únicos encontrados:\n", "enlace")
+        
+        # Para pocos vínculos (hasta 6), mostrar en líneas compactas
+        if len(vinculos_lista) <= 6:
+            # Dividir en 2 líneas si hay más de 3 vínculos
+            if len(vinculos_lista) > 3:
+                mitad = len(vinculos_lista) // 2
+                linea1 = "   "
+                for i, (certificado, patron) in enumerate(vinculos_lista[:mitad]):
+                    if i > 0:
+                        linea1 += " / "
+                    linea1 += f"📋 {certificado} → {patron}"
+                
+                linea2 = "   "
+                for i, (certificado, patron) in enumerate(vinculos_lista[mitad:]):
+                    if i > 0:
+                        linea2 += " / "
+                    linea2 += f"📋 {certificado} → {patron}"
+                
+                self._insertar_log(linea1 + "\n", "info")
+                self._insertar_log(linea2 + "\n\n", "info")
+            else:
+                # Todos en una línea
+                linea = "   "
+                for i, (certificado, patron) in enumerate(vinculos_lista):
+                    if i > 0:
+                        linea += " / "
+                    linea += f"📋 {certificado} → {patron}"
+                self._insertar_log(linea + "\n\n", "info")
+        else:
+            # Para muchos vínculos, mostrar en formato de lista compacta
+            for i, (certificado, patron) in enumerate(vinculos_lista):
+                if i < 8:  # Mostrar máximo 8
+                    self._insertar_log(f"   📋 {certificado} → {patron}\n", "info")
+                else:
+                    self._insertar_log(f"   ... y {len(vinculos_lista) - 8} más\n", "info")
+                    break
+            self._insertar_log("\n", "info")
+    
+    def seleccionar_archivos(self):
+        archivos = filedialog.askopenfilenames(
+            title="Seleccionar archivos PDF",
+            filetypes=[("Archivos PDF", "*.pdf"), ("Todos los archivos", "*.*")]
+        )
+        if archivos:
+            self.agregar_archivos(archivos)
+    
+    def archivos_arrastrados(self, event):
+        if DND_ACTIVO:
+            archivos = self.root.tk.splitlist(event.data)
+            archivos_pdf = [f for f in archivos if f.lower().endswith('.pdf')]
+            if archivos_pdf:
+                self.agregar_archivos(archivos_pdf)
+    
+    def agregar_archivos(self, archivos):
+        for archivo in archivos:
+            if archivo not in self.archivos_pendientes:
+                self.archivos_pendientes.append(archivo)
+                nombre = os.path.basename(archivo)
+                self.lista_archivos.insert(tk.END, nombre)
+        self.actualizar_estado()
+    
+    def actualizar_estado(self):
+        total = len(self.archivos_pendientes)
+        self.lbl_estado_global.config(text=f"Archivos listos: {total}")
+        self.btn_procesar.config(state=tk.NORMAL if total > 0 else tk.DISABLED, 
+                               bg="#27ae60" if total > 0 else "#95a5a6")
+    
+    def limpiar_todo(self):
+        self.procesando = False
+        self.archivos_pendientes.clear()
+        self.lista_archivos.delete(0, tk.END)
+        self.archivos_procesados = 0
+        self.total_archivos = 0
+        self.progress["value"] = 0
+        self.progress["maximum"] = 100
+        self.ultimo_mensaje_log = ""
+        self.vinculos_unicos.clear()
+        
+        self.log_widget.config(state=tk.NORMAL)
+        self.log_widget.delete("1.0", tk.END)
+        
+        self.limpiar_tabla_firmas()
+        self.lbl_estado_global.config(text="Esperando archivos...", fg="#1f618d")
+        self.btn_procesar.config(state=tk.NORMAL, bg="#27ae60")
+        self.pdf_processor.limpiar_directorio_temporal_global()
+        self._insertar_log("🧹 TODO ha sido limpiado correctamente.\n", "success")
+    
+    def limpiar_tabla_firmas(self):
+        for item in self.tree_firmas.get_children():
+            self.tree_firmas.delete(item)
+        self.datos_firmas.clear()
+    
+    def actualizar_tabla_firmas(self, ruta_pdf, estado, tipo, firmante, fecha, magnitud):
+        nombre_archivo = os.path.basename(ruta_pdf)
+        nombre_magnitud = self.magnitude_manager.MAGNITUDES.get(magnitud, magnitud)
+        
+        self.datos_firmas.append({
+            "archivo": nombre_archivo,
+            "estado": estado,
+            "tipo": tipo,
+            "firmante": firmante,
+            "fecha": fecha,
+            "magnitud": nombre_magnitud
+        })
+        
+        def _actualizar_tabla():
+            self.tree_firmas.insert("", "end", values=(
+                nombre_archivo, estado, firmante, fecha, tipo, nombre_magnitud
+            ))
+        
+        self._ejecutar_en_principal(_actualizar_tabla)
+    
+    def iniciar_procesamiento(self):
+        if not self.archivos_pendientes or self.procesando:
+            return
+        
+        if not self.magnitude_manager.magnitud_seleccionada:
+            self.cambiar_magnitud()
+            if not self.magnitude_manager.magnitud_seleccionada:
+                messagebox.showwarning("Magnitud no seleccionada", 
+                                     "Debe seleccionar una magnitud antes de procesar.")
+                return
+        
+        self.procesando = True
+        self.archivos_procesados = 0
+        self.total_archivos = len(self.archivos_pendientes)
+        
+        self.progress.config(maximum=self.total_archivos)
+        self.progress["value"] = 0
+        self.btn_procesar.config(state=tk.DISABLED, bg="#95a5a6")
+        
+        self.log_widget.delete(1.0, tk.END)
+        self.ultimo_mensaje_log = ""
+        self.vinculos_unicos.clear()
+        
+        magnitud_nombre = self.magnitude_manager.MAGNITUDES[self.magnitude_manager.magnitud_seleccionada]
+        self._insertar_log(f"🚀 INICIANDO PROCESAMIENTO DE {self.total_archivos} ARCHIVO(S)\n", "proceso")
+        self._insertar_log(f"📁 Magnitud seleccionada: {magnitud_nombre}\n\n", "magnitud")
+        
+        # Ejecutar en hilo separado
+        threading.Thread(target=self._procesar_lote, daemon=True).start()
+    
+    def _procesar_lote(self):
+        """Procesa el lote completo en hilo separado"""
+        archivos_a_procesar = self.archivos_pendientes.copy()
         
         for archivo in archivos_a_procesar:
+            if not self.procesando:
+                break
+                
             self._procesar_archivo_simple(archivo)
             self.archivos_procesados += 1
             
