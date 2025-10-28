@@ -8,3 +8,4 @@ get_refresh_token: true
 oauth_scope:
   - https://www.googleapis.com/auth/drive.file
   - https://www.googleapis.com/auth/drive.metadata
+  - https://www.googleapis.com/auth/cloud-platform

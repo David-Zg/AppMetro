@@ -31,8 +31,8 @@ class MagnitudeManager:
     
     def __init__(self):
         self.drive = None
-        self.folder_patrones = "1uj_n8M8ymeLJp2H7clfsno7cSqKgbN8a"
-        self.folder_certificados = "1xHUXnymGCFHr58ptJTNhIHH8NhL3A9cr"
+        self.folder_patrones = "1Di2MbnIMhOVEUg-G-LWAWJWCJHrqEjhA"
+        self.folder_certificados = "1UnPlrYHtza8Tn38WJPAbshItFNol9REP"
         self.folder_patrones_nombre = "Patrones"
         self.folder_certificados_nombre = "Certificado"
         self.magnitudes_config = {}
